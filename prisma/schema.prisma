@@ -11,3 +11,87 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+
+// User Table
+model User {
+  id String  @id @default(uuid())
+  email String @unique
+  name String
+  password String
+  roleId   String @unique
+
+  departments UserDepartment[]
+  role Role @relation(fields: [roleId],references: [id])
+
+
+  
+  reportedTasks Task[] @relation("ReportedTasks")
+  assignedTasks Task[] @relation("AssignedTasks")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}
+
+
+//Department Table
+model Department{
+  id String  @id @default(uuid())
+  name String
+
+  users UserDepartment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+//User Department Table (many-to-many)
+model UserDepartment{
+  userId String
+  departmentId String
+
+  user User  @relation(fields: [userId], references: [id])
+  department Department @relation(fields: [departmentId],references: [id])
+
+  @@id([userId,departmentId]) //Composite primary key
+}
+
+
+
+//Role Table 
+model Role{
+  id String  @id @default(uuid())
+  name String
+
+
+  users User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+//Tasks Table
+model Task{
+  id   String   @id @default(uuid())
+  name String
+  priority  String
+  Description String
+  time      DateTime
+
+
+  //reported to:userid , assignedTo:userid both are foreign keys
+  reportedToId  String @unique
+  assignedToId  String @unique
+
+
+
+//Relations
+ reportedTo User @relation("ReportedTasks", fields: [reportedToId], references: [id])
+  assignedTo User @relation("AssignedTasks", fields: [assignedToId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
