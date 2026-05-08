@@ -73,14 +73,28 @@ model Role{
 }
 
 
+//Enums
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Status {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+
 //Tasks Table
 model Task{
   id   String   @id @default(uuid())
   name String
-  priority  String
+  priority  Priority   @default(MEDIUM)
   Description String
   time      DateTime
-
+  status    Status    @default(TODO)
 
   //reported to:userid , assignedTo:userid both are foreign keys
   reportedToId  String @unique
