@@ -20,7 +20,7 @@ model User {
   email String @unique
   name String
   password String
-  roleId   String @unique
+  roleId   String 
 
   departments UserDepartment[]
   role Role @relation(fields: [roleId],references: [id])
@@ -39,7 +39,7 @@ model User {
 //Department Table
 model Department{
   id String  @id @default(uuid())
-  name String
+  name String @unique
 
   users UserDepartment[]
 
@@ -50,8 +50,8 @@ model Department{
 
 //User Department Table (many-to-many)
 model UserDepartment{
-  userId String
-  departmentId String
+  userId String 
+  departmentId String 
 
   user User  @relation(fields: [userId], references: [id])
   department Department @relation(fields: [departmentId],references: [id])
@@ -64,7 +64,7 @@ model UserDepartment{
 //Role Table 
 model Role{
   id String  @id @default(uuid())
-  name String
+  name String @unique
 
 
   users User[]
