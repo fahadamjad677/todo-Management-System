@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
-
+import * as bcrypt from 'bcrypt';
 class Seeder {
   private prisma: PrismaClient;
 
@@ -32,6 +32,8 @@ class Seeder {
       },
     });
 
+    const password: string = 'admin123';
+    const hashed = await bcrypt.hash(password, 10);
     //Creating User
     const superAdmin = await this.prisma.user.upsert({
       where: { email: 'admin123@gmail.com' },
@@ -40,7 +42,7 @@ class Seeder {
         name: 'admin123',
         email: 'admin123@gmail.com',
         roleId: superAdminRole.id,
-        password: 'superadmin123',
+        password: hashed,
       },
     });
 

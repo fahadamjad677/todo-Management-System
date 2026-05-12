@@ -21,7 +21,7 @@ model User {
   name String
   password String
   roleId   String 
-
+  refreshToken String?
   departments UserDepartment[]
   role Role @relation(fields: [roleId],references: [id])
 
