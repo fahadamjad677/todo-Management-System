@@ -3,7 +3,6 @@ import { Prisma } from 'generated/prisma/client';
 export const userSelect = {
   id: true,
   email: true,
-  password: true, //
   role: {
     select: {
       name: true,
