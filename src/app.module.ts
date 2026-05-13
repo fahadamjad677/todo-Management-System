@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { DepartmentModule } from './department/department.module';
 import { PaymentModule } from './payment/payment.module';
+import { TaskModule } from './task/task.module';
 import { PaymentModule } from './payment/payment.module';
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PaymentModule } from './payment/payment.module';
     ConfigModule.forRoot({ isGlobal: true }),
     DepartmentModule,
     PaymentModule,
+    TaskModule,
   ],
   controllers: [],
   providers: [],
