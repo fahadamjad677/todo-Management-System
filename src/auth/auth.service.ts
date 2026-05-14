@@ -5,7 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PayloadUser } from './types';
-import { authUserSelect, userSelect } from '../prisma/selects';
+import { authUserSelect } from '../prisma/selects';
 
 @Injectable()
 export class AuthService {
@@ -21,7 +21,7 @@ export class AuthService {
       where: {
         email: dto.email,
       },
-      select: userSelect,
+      select: authUserSelect,
     });
 
     if (!user) {

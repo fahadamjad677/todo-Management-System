@@ -6,6 +6,7 @@ import {
 import { CreateUserDto, UpdateUserDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { userSelect } from 'src/prisma/selects';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UserService {
@@ -42,28 +43,34 @@ export class UserService {
       throw new NotFoundException('Role not found');
     }
 
+    //Hashing password
+    const hash = await bcrypt.hash(createUserDto.password, 10);
     //Creating User
-    const user = await this.prisma.user.create({
-      data: {
-        name: createUserDto.name,
-        email: createUserDto.email,
-        password: createUserDto.password,
-        roleId: createUserDto.roleId,
-      },
-      select: userSelect,
-    });
+    const createduser = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: createUserDto.name,
+          email: createUserDto.email,
+          password: hash,
+          roleId: createUserDto.roleId,
+        },
+        select: userSelect,
+      });
 
-    await this.prisma.userDepartment.create({
-      data: {
-        userId: user.id,
-        departmentId: createUserDto.departmentId,
-      },
+      await tx.userDepartment.create({
+        data: {
+          userId: user.id,
+          departmentId: createUserDto.departmentId,
+        },
+      });
+
+      return user;
     });
 
     return {
       success: true,
       msg: 'User Created successfully',
-      data: user,
+      data: createduser,
     };
   }
 

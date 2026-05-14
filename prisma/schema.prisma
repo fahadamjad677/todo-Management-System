@@ -53,8 +53,8 @@ model UserDepartment{
   userId String 
   departmentId String 
 
-  user User  @relation(fields: [userId], references: [id])
-  department Department @relation(fields: [departmentId],references: [id])
+  user User  @relation(fields: [userId], references: [id],onDelete: Cascade)
+  department Department @relation(fields: [departmentId],references: [id],onDelete: Cascade)
 
   @@id([userId,departmentId]) //Composite primary key
 }

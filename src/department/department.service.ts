@@ -108,8 +108,8 @@ export class DepartmentService {
       select: { id: true },
     });
 
-    if (exist) {
-      throw new NotFoundException('Role not found');
+    if (!exist) {
+      throw new NotFoundException('Department not found');
     }
 
     await this.prisma.department.delete({
