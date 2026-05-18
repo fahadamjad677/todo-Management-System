@@ -98,8 +98,10 @@ model Task{
   status    Status    @default(TODO)
 
   //reported to:userid , assignedTo:userid both are foreign keys
-  reportedToId  String @unique
-  assignedToId  String @unique
+  reportedToId  String 
+  assignedToId  String 
+
+  
 
 
 
