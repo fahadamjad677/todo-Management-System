@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { DepartmentModule } from './department/department.module';
 import { TaskModule } from './task/task.module';
+import { CommonModule } from './common/common.module';
 @Module({
   imports: [
     AuthModule,
@@ -15,6 +16,7 @@ import { TaskModule } from './task/task.module';
     ConfigModule.forRoot({ isGlobal: true }),
     DepartmentModule,
     TaskModule,
+    CommonModule,
   ],
   controllers: [],
   providers: [],

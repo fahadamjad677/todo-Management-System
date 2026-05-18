@@ -9,4 +9,14 @@ export const authUserSelect = {
       name: true,
     },
   },
+  departments: {
+    select: {
+      department: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  },
 } satisfies Prisma.UserSelect;

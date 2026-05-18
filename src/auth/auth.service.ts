@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto';
 import * as bcrypt from 'bcrypt';
@@ -6,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PayloadUser } from './types';
 import { authUserSelect } from '../prisma/selects';
+import { CommonService } from 'src/common/services/common.service';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +18,7 @@ export class AuthService {
     private prismaservice: PrismaService,
     private jwtservice: JwtService,
     private configservice: ConfigService,
+    private readonly commonservice: CommonService,
   ) {}
 
   //Sign
@@ -34,7 +40,21 @@ export class AuthService {
       throw new BadRequestException('Invalid credentials (password)');
     }
 
-    return this.signToken(user.id, user.email, user.role.name);
+    const departments: string[] = this.commonservice.flattenDepartments(
+      user,
+      'id',
+    );
+
+    if (!departments.includes(dto.departmentId)) {
+      throw new NotFoundException(' department not found');
+    }
+
+    return this.signToken(
+      user.id,
+      user.email,
+      user.role.name,
+      dto.departmentId,
+    );
   }
 
   //Logut
@@ -52,7 +72,12 @@ export class AuthService {
     return 'logut Successfull';
   }
   //---------Token Encrpytion------------------
-  async signToken(id: string, email: string, role: string) {
+  async signToken(
+    id: string,
+    email: string,
+    role: string,
+    departmentid: string,
+  ) {
     const secretAcess = this.configservice.get<string>('JWT_ACCESS_SECRET');
     const secretRefresh = this.configservice.get<string>('JWT_REFRESH_SECRET');
 
@@ -63,6 +88,7 @@ export class AuthService {
       sub: id,
       email: email,
       role: role,
+      departmentId: departmentid,
     };
 
     //Acess Token Signed
@@ -101,6 +127,12 @@ export class AuthService {
     if (!payload) {
       throw new BadRequestException(' Invalid Cridentails');
     }
-    return this.signToken(payload.id, payload.email, payload.role.name);
+
+    return this.signToken(
+      payload.id,
+      payload.email,
+      payload.role.name,
+      user.department,
+    );
   }
 }

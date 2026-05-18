@@ -5,7 +5,8 @@ import { ConfigService } from '@nestjs/config';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PayloadUser } from '../types';
-import { userSelect } from '../../prisma/selects';
+import { authUserSelect } from '../../prisma/selects';
+import { CommonService } from 'src/common/services/common.service';
 
 @Injectable()
 export class AcessjwtStrategy extends PassportStrategy(
@@ -15,6 +16,7 @@ export class AcessjwtStrategy extends PassportStrategy(
   constructor(
     configservice: ConfigService,
     private prismaservice: PrismaService,
+    private readonly commonservice: CommonService,
   ) {
     const secret = configservice.get<string>('JWT_ACCESS_SECRET');
     if (!secret) {
@@ -32,19 +34,19 @@ export class AcessjwtStrategy extends PassportStrategy(
     }
     const user = await this.prismaservice.user.findFirst({
       where: { email: payload.email },
-      select: userSelect,
+      select: authUserSelect,
     });
 
-    if (user) {
-      //payload
-
-      const payload: PayloadUser = {
-        sub: user.id,
-        email: user.email,
-        role: user.role.name,
-      };
-      return payload;
+    if (!user) {
+      throw new UnauthorizedException('Invalid Token');
     }
-    throw new UnauthorizedException('Invalid Token');
+    //payload
+    const payloaduser: PayloadUser = {
+      sub: user.id,
+      email: user.email,
+      role: user.role.name,
+      department: payload.department,
+    };
+    return payloaduser;
   }
 }
