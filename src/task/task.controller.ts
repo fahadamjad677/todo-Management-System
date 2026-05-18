@@ -6,24 +6,35 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
 import { TaskService } from './task.service';
 import { CreateTaskDto, UpdateTaskDto } from './dto';
+import { Roles } from 'src/auth/decorator/role.decorator';
+import { jwtAcessGuard, RoleGuard } from 'src/auth/guard';
+import { GetUser } from '../user/decorator';
+import type { PayloadUser } from '../auth/types';
 
+@UseGuards(jwtAcessGuard, RoleGuard)
+@Roles('ADMIN', 'MANAGER')
 @Controller('task')
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
 
   @Post()
-  create(@Body() createTaskDto: CreateTaskDto) {
-    return this.taskService.create(createTaskDto);
+  create(@Body() createTaskDto: CreateTaskDto, @GetUser() user: PayloadUser) {
+    return this.taskService.create(createTaskDto, user);
   }
 
-  @Get()
-  findAll() {
-    return this.taskService.findAll();
+  @Get('ReportedTo')
+  getReportedTo(@GetUser() userRole: PayloadUser) {
+    return this.taskService.getReportedTo(userRole);
   }
 
+  @Get('AssignedTo')
+  getAssignedTo(@GetUser() userRole: PayloadUser) {
+    return this.taskService.getAssignedTo(userRole);
+  }
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.taskService.findOne(+id);
