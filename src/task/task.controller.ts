@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { TaskService } from './task.service';
-import { CreateTaskDto, UpdateTaskDto } from './dto';
+import { CreateTaskDto } from './dto';
 import { Roles } from 'src/auth/decorator/role.decorator';
 import { jwtAcessGuard, RoleGuard } from 'src/auth/guard';
 import { GetUser } from '../user/decorator';
@@ -35,18 +35,18 @@ export class TaskController {
   getAssignedTo(@GetUser() userRole: PayloadUser) {
     return this.taskService.getAssignedTo(userRole);
   }
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.taskService.findOne(+id);
-  }
+  // @Get(':id')
+  // findOne(@Param('id') id: string) {
+  //   return this.taskService.findOne(+id);
+  // }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto) {
-    return this.taskService.update(+id, updateTaskDto);
-  }
+  // @Patch(':id')
+  // update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto) {
+  //   return this.taskService.update(+id, updateTaskDto);
+  // }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.taskService.remove(+id);
-  }
+  // @Delete(':id')
+  // remove(@Param('id') id: string) {
+  //   return this.taskService.remove(+id);
+  // }
 }

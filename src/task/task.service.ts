@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateTaskDto, UpdateTaskDto } from './dto';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { CreateTaskDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PayloadUser } from 'src/auth/types';
 import { userSelect } from 'src/prisma/selects';
+import { CommonService } from 'src/common/services/common.service';
 
 type userType = {
   id: string;
@@ -11,7 +16,10 @@ type userType = {
 
 @Injectable()
 export class TaskService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commonservice: CommonService,
+  ) {}
 
   //Get All Reported To Users Tasks
   async getReportedTo(user: PayloadUser) {
@@ -19,6 +27,13 @@ export class TaskService {
 
     if (user.role == 'ADMIN') {
       users = await this.prisma.user.findMany({
+        where: {
+          role: {
+            name: {
+              in: ['ADMIN', 'MANAGER'],
+            },
+          },
+        },
         select: { id: true, name: true },
       });
     } else if (user.role == 'MANAGER') {
@@ -35,7 +50,7 @@ export class TaskService {
 
     return {
       success: true,
-      msg: 'Assign Users returned successfully',
+      msg: 'Reported Users returned successfully',
       data: users,
     };
   }
@@ -73,30 +88,73 @@ export class TaskService {
     };
   }
   async create(createTaskDto: CreateTaskDto, user: PayloadUser) {
-    // const reportToUser = await this.prisma.user.findUnique({
-    //   where: { id: createTaskDto.reportedToId },
-    //   select: {
-    //     id: true,
-    //     departments: {
-    //       select: {
-    //         department: {
-    //           select: {
-    //             name: true,
-    //           },
-    //         },
-    //       },
-    //     },
-    //   },
-    // });
+    const { reportToUser, assignToUser } =
+      await this.getReportedandAssignedUserById(createTaskDto);
 
-    // if (!reportToUser) {
-    //   throw new NotFoundException('user not found ');
-    // }
+    //Admin Criteria
+    if (user.role == 'ADMIN') {
+      //ReportTo==Assignto
+      if (
+        reportToUser.role.name == 'ADMIN' &&
+        assignToUser.role.name != 'ADMIN'
+      ) {
+        throw new ConflictException('ReportToUser mismatch with AssignToUser');
+      }
 
-    const assignedToUser = await this.prisma.user.findUnique({
-      where: { id: createTaskDto.assignedToId },
+      //ReportTo=Manager so AssignTo belongs to that managers' department
+      if (
+        reportToUser.role.name == 'MANAGER' &&
+        assignToUser.role.name == 'USER'
+      ) {
+        const reportedDepts = this.commonservice.flattenDepartments(
+          reportToUser,
+          'name',
+        );
+
+        const assigneDepts = this.commonservice.flattenDepartments(
+          assignToUser,
+          'name',
+        );
+
+        console.log('ReportedDepts', reportedDepts);
+        console.log('AssignedDepts', assigneDepts);
+        const CheckDeptMatch = reportedDepts.some((dept) => {
+          return assigneDepts.includes(dept);
+        });
+
+        console.log('CheckDepthMatch', CheckDeptMatch);
+        if (!CheckDeptMatch) {
+          throw new ConflictException(
+            'reportedTo dept not matches with assignedTo dept',
+          );
+        }
+      }
+    }
+
+    const task = await this.prisma.task.create({
+      data: {
+        name: createTaskDto.name,
+        Description: createTaskDto.description,
+        time: createTaskDto.time,
+        assignedToId: createTaskDto.assignedToId,
+        reportedToId: createTaskDto.reportedToId,
+      },
+    });
+
+    return {
+      success: true,
+      msg: 'Reported Users returned successfully',
+      data: task,
+    };
+  }
+
+  //Get Reported To and AssignedTo user by Id
+  async getReportedandAssignedUserById(createTaskDto: CreateTaskDto) {
+    const reportToUser = await this.prisma.user.findUnique({
+      where: { id: createTaskDto.reportedToId },
       select: {
         id: true,
+        role: { select: { name: true } },
         departments: {
           select: {
             department: {
@@ -109,33 +167,32 @@ export class TaskService {
       },
     });
 
-    if (!assignedToUser) {
-      throw new NotFoundException('User not found');
+    if (!reportToUser) {
+      throw new NotFoundException('reportedTo Id not found ');
     }
 
-    // if (reportToUser.departments != assignedToUser) {
-    // }
-    const task = await this.prisma.task.create({
-      data: {
-        name: createTaskDto.name,
-        Description: createTaskDto.description,
-        time: createTaskDto.time,
-        assignedToId: createTaskDto.assignedToId,
-        reportedToId: createTaskDto.reportedToId,
+    const assignToUser = await this.prisma.user.findUnique({
+      where: { id: createTaskDto.assignedToId },
+      select: {
+        id: true,
+        role: { select: { name: true } },
+        departments: {
+          select: {
+            department: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
-  }
 
-  findOne(id: number) {
-    return `This action returns a #${id} task`;
-  }
+    if (!assignToUser) {
+      throw new NotFoundException('Assigned To Id not  found');
+    }
 
-  update(id: number, updateTaskDto: UpdateTaskDto) {
-    return `This action updates a #${id} task`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} task`;
+    return { reportToUser, assignToUser };
   }
 
   //-------------------HELPERS-----------------------

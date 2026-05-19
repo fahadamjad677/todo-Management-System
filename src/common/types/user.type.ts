@@ -13,7 +13,6 @@ export type UserType = {
 
 export type UserTypeExtended = {
   id: string;
-  email: string;
   role: {
     name: string;
   };
