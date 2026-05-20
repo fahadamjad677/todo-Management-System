@@ -101,8 +101,6 @@ model Task{
   reportedToId  String 
   assignedToId  String 
 
-  
-
 
 
 //Relations

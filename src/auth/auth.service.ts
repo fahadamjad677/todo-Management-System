@@ -84,11 +84,11 @@ export class AuthService {
     if (!secretAcess || !secretRefresh) {
       throw new Error('Jwt access or refresh secret not defined');
     }
-    const payload = {
+    const payload: PayloadUser = {
       sub: id,
       email: email,
       role: role,
-      departmentId: departmentid,
+      department: departmentid,
     };
 
     //Acess Token Signed
