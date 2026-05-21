@@ -12,7 +12,7 @@ export class RoleGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>('roles', [
+    const requiredRoles = this.reflector.getAllAndMerge<string[]>('roles', [
       context.getHandler(),
       context.getClass(),
     ]);
@@ -34,6 +34,8 @@ export class RoleGuard implements CanActivate {
       .map((r) => r.toLowerCase())
       .includes(userRole);
 
+    console.log('Required Roles:', requiredRoles);
+    console.log('User Role:', userRole);
     if (!hasAccess) {
       throw new ForbiddenException(`Access denied for role: ${user.role}`);
     }

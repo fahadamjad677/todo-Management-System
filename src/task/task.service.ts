@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -144,8 +145,11 @@ export class TaskService {
     );
     //Admin Criteria
     if (user.role == 'ADMIN') {
+      //  Validates Admin Permissions
       this.CheckAdminPermissions(reportToUser, assignToUser);
-    } else if (user.role == 'MANAGER') {
+    }
+    //Manager Criteria
+    else if (user.role == 'MANAGER') {
       if (user.sub != reportToUser.id) {
         throw new ConflictException('MANAGER can only report to themself');
       } else if (assignToUser.role.name != 'USER') {
@@ -289,6 +293,59 @@ export class TaskService {
         }
       }
     }
+    //MANAGER VALIDATION
+    else if (user.role == 'MANAGER') {
+      //Manager only change the reportTo of itself  ReportToId Exists
+      if (updateTaskDto.reportedToId) {
+        //ReportTo Cases
+        const reportToUser = await this.getReportToUserByReportToId(
+          updateTaskDto.reportedToId,
+        );
+
+        //Admin Case
+        if (reportToUser.role.name == 'ADMIN') {
+          throw new BadRequestException(
+            'MANAGER  changes the ReportTO field to itself or Users',
+          );
+        }
+        //Manager Case
+        else if (
+          reportToUser.role.name == 'MANAGER' &&
+          reportToUser.id != user.sub
+        ) {
+          throw new BadRequestException(
+            'MANAGER  changes the ReportTO field to itself or Users ',
+          );
+        }
+
+        //User Case
+        else if (reportToUser.role.name == 'USER') {
+          throw new BadRequestException(
+            'MANAGER  changes the ReportTO field to itself or Users ',
+          );
+        }
+      }
+
+      // ReportToId Not Exists
+      else if (!updateTaskDto.reportedToId) {
+        // AssignToId Exists
+        if (updateTaskDto.assignedToId) {
+          const assignToUser = await this.getAssignToUserByAssignToId(
+            updateTaskDto.assignedToId,
+          );
+
+          this.checkManagerPermissions(assignToUser, user);
+        }
+      }
+      if (updateTaskDto.reportedToId)
+        if (updateTaskDto.assignedToId) {
+          //AssignTo Cases
+          const assignToUser = await this.getAssignToUserByAssignToId(
+            updateTaskDto.assignedToId,
+          );
+          this.checkManagerPermissions(assignToUser, user);
+        }
+    }
 
     const updatedTask = await this.prisma.task.update({
       where: { id: id },
@@ -327,28 +384,63 @@ export class TaskService {
     // ReportTO if User then throw Error
     else if (reportToUser.role.name == 'USER') {
       throw new NotFoundException('invalid reportTo User');
-    }
-    const reportedDepts = this.commonservice.flattenDepartments(
-      reportToUser,
-      'name',
-    );
-
-    const assigneDepts = this.commonservice.flattenDepartments(
-      assignToUser,
-      'name',
-    );
-
-    console.log('ReportedDepts', reportedDepts);
-    console.log('AssignedDepts', assigneDepts);
-    const CheckDeptMatch = reportedDepts.some((dept) => {
-      return assigneDepts.includes(dept);
-    });
-
-    console.log('CheckDepthMatch', CheckDeptMatch);
-    if (!CheckDeptMatch) {
-      throw new ConflictException(
-        'reportedTo dept not matches with assignedTo dept',
+    } else if (
+      reportToUser.role.name == 'MANAGER' &&
+      assignToUser.role.name == 'USER'
+    ) {
+      const reportedDepts = this.commonservice.flattenDepartments(
+        reportToUser,
+        'name',
       );
+
+      const assigneDepts = this.commonservice.flattenDepartments(
+        assignToUser,
+        'name',
+      );
+
+      const CheckDeptMatch = reportedDepts.some((dept) => {
+        return assigneDepts.includes(dept);
+      });
+
+      console.log('CheckDepthMatch', CheckDeptMatch);
+      if (!CheckDeptMatch) {
+        throw new ConflictException(
+          'reportedTo dept not matches with assignedTo dept',
+        );
+      }
+    }
+  }
+
+  //Check Managaer Permissions
+  checkManagerPermissions(assignToUser: assignToUser, user: PayloadUser) {
+    //Manager Can Assign To Itself OR USER of same Department
+
+    //Admin Case
+    if (assignToUser.role.name == 'ADMIN') {
+      throw new BadRequestException(
+        'MANAGER can assign to itself or Users under its department',
+      );
+    }
+
+    //Manager Case
+    if (assignToUser.role.name == 'MANAGER' && assignToUser.id != user.sub) {
+      throw new BadRequestException(
+        'MANAGER can assign to itself or Users under its department',
+      );
+    }
+
+    //User Case
+    if (assignToUser.role.name == 'USER') {
+      const assignedepts = this.commonservice.flattenDepartments(
+        assignToUser,
+        'id',
+      );
+      const checkAssigne = assignedepts.includes(user.department);
+      if (!checkAssigne) {
+        throw new ConflictException(
+          'MANAGER can only assign user of their own departments',
+        );
+      }
     }
   }
   //Get ReportToUser by ReportToId
