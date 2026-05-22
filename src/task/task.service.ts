@@ -4,12 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateTaskDto, UpdateTaskDto } from './dto';
+import { CreateTaskDto, GetTasksQueryDto, UpdateTaskDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PayloadUser } from 'src/auth/types';
 import { CommonService } from 'src/common/services/common.service';
 import { taskSelect } from 'src/prisma/selects';
 import { assignToUser, reportedUser, TaskType } from './types';
+import { Prisma } from 'generated/prisma/client';
 
 type userType = {
   id: string;
@@ -185,34 +186,39 @@ export class TaskService {
   }
 
   //Get Tasks
-  async getTasks(user: PayloadUser) {
-    let tasks: TaskType[] | [];
-
+  async getTasks(user: PayloadUser, query: GetTasksQueryDto) {
+    let where: Prisma.TaskWhereInput = {};
     //Get All Tasks Under Admin
     if (user.role == 'ADMIN') {
-      tasks = await this.prisma.task.findMany({
-        select: taskSelect,
-      });
+      /* empty */
     }
     //Get all Tasks Under Manager
     else if (user.role == 'MANAGER') {
-      console.log('userId', user.sub);
-      tasks = await this.prisma.task.findMany({
-        where: {
-          OR: [{ reportedToId: user.sub }, { assignedToId: user.sub }],
-        },
-        select: taskSelect,
-      });
+      where = {
+        OR: [{ reportedToId: user.sub }, { assignedToId: user.sub }],
+      };
     }
     //Get All Tasks Under User
     else {
-      tasks = await this.prisma.task.findMany({
-        where: {
-          assignedToId: user.sub,
-        },
-        select: taskSelect,
-      });
+      where = {
+        assignedToId: user.sub,
+      };
     }
+
+    //Query Based Filtering..
+    if (query.status) {
+      where = {
+        status: query.status,
+      };
+    } else if (query.priority) {
+      where = {
+        priority: query.priority,
+      };
+    }
+    const tasks: TaskType[] | [] = await this.prisma.task.findMany({
+      where: where,
+      select: taskSelect,
+    });
 
     return {
       success: true,

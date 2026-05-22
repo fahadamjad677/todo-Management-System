@@ -8,9 +8,10 @@ import {
   Delete,
   UseGuards,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import { TaskService } from './task.service';
-import { CreateTaskDto, UpdateTaskDto } from './dto';
+import { CreateTaskDto, GetTasksQueryDto, UpdateTaskDto } from './dto';
 import { Roles } from 'src/auth/decorator/role.decorator';
 import { jwtAcessGuard, RoleGuard } from 'src/auth/guard';
 import { GetUser } from '../user/decorator';
@@ -42,8 +43,8 @@ export class TaskController {
 
   @Roles('USER')
   @Get()
-  getAllTasks(@GetUser() user: PayloadUser) {
-    return this.taskService.getTasks(user);
+  getAllTasks(@GetUser() user: PayloadUser, @Query() query: GetTasksQueryDto) {
+    return this.taskService.getTasks(user, query);
   }
 
   @Patch(':id')
