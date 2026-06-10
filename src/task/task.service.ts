@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PayloadUser } from 'src/auth/types';
 import { CommonService } from 'src/common/services/common.service';
 import { taskSelect } from 'src/prisma/selects';
-import { reportedUser, TaskType } from './types';
+import { reportedUser } from './types';
 import { Prisma } from 'generated/prisma/client';
 import { CreateTaskPolicy, UpdateTaskPolicy } from './policy';
 
@@ -30,9 +30,9 @@ export class TaskService {
 
   //Get All Reported To Users Tasks
   async getReportedTo(user: PayloadUser) {
-    let users: userType[] | userType | null;
+    let users: userType[] | userType | null = null;
 
-    //if Role is user then return Admin and other Users with role Manager
+    //if Role is admin then return Admin and other Users with role Manager
     if (user.role == 'ADMIN') {
       users = await this.prisma.user.findMany({
         where: {
@@ -179,43 +179,62 @@ export class TaskService {
 
   //Get Tasks
   async getTasks(user: PayloadUser, query: GetTasksQueryDto) {
+    const { status, priority, offset = 0, limit = 10 } = query;
+
+    // dynamic Where Object
     let where: Prisma.TaskWhereInput = {};
-    //Get All Tasks Under Admin
-    if (user.role == 'ADMIN') {
-      /* empty */
-    }
-    //Get all Tasks Under Manager
-    else if (user.role == 'MANAGER') {
+
+    if (user.role === 'ADMIN') {
+      // Admin sees everything
+    } else if (user.role === 'MANAGER') {
       where = {
         OR: [{ reportedToId: user.sub }, { assignedToId: user.sub }],
       };
-    }
-    //Get All Tasks Under User
-    else {
+    } else {
       where = {
         assignedToId: user.sub,
       };
     }
 
-    //Query Based Filtering..
-    if (query.status) {
+    // Merge filters instead of overwriting
+    if (status) {
       where = {
-        status: query.status,
-      };
-    } else if (query.priority) {
-      where = {
-        priority: query.priority,
+        ...where,
+        status,
       };
     }
-    const tasks: TaskType[] | [] = await this.prisma.task.findMany({
-      where: where,
-      select: taskSelect,
-    });
+
+    if (priority) {
+      where = {
+        ...where,
+        priority,
+      };
+    }
+
+    // Transaction for consistency
+    const [tasks, total] = await this.prisma.$transaction([
+      this.prisma.task.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: taskSelect,
+      }),
+      this.prisma.task.count({ where }),
+    ]);
 
     return {
       success: true,
       msg: 'Tasks Returned Successfully',
       data: tasks,
+      meta: {
+        total,
+        offset,
+        limit,
+        hasMore: offset + limit < total,
+      },
     };
   }
 
