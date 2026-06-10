@@ -8,7 +8,7 @@ import {
   IsUUID,
 } from 'class-validator';
 
-import { Priority, Status } from 'generated/prisma/enums';
+import { Priority } from 'generated/prisma/enums';
 
 export class CreateTaskDto {
   @IsString()
@@ -21,12 +21,6 @@ export class CreateTaskDto {
     message: 'Priority must be one of: LOW, MEDIUM, HIGH',
   })
   priority?: Priority;
-
-  @IsOptional()
-  @IsEnum(Status, {
-    message: 'Status must be one of: TODO, IN_PROGRESS,REVIEW, COMPLETED',
-  })
-  status?: Status;
 
   @IsString()
   @IsNotEmpty()
