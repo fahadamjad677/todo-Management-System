@@ -33,6 +33,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+
+  tasks Task[] @relation("CreatedTasks")
 }
 
 
@@ -84,7 +86,8 @@ enum Priority {
 enum Status {
   TODO
   IN_PROGRESS
-  DONE
+  REVIEW
+  COMPLETED
 }
 
 
@@ -100,12 +103,13 @@ model Task{
   //reported to:userid , assignedTo:userid both are foreign keys
   reportedToId  String 
   assignedToId  String 
-
+  createdbyId   String
 
 
 //Relations
  reportedTo User @relation("ReportedTasks", fields: [reportedToId], references: [id])
   assignedTo User @relation("AssignedTasks", fields: [assignedToId], references: [id])
+   createdById User @relation("CreatedTasks", fields: [createdbyId], references:[id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

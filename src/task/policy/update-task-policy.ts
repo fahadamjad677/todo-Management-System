@@ -1,0 +1,75 @@
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { PayloadUser } from 'src/auth/types';
+import { assignToUser, reportedUser, Role } from '../types';
+import { UpdateTaskDto } from '../dto';
+import {
+  CreateTaskPolicy,
+  ROLE_FIELD_PERMISSIONS,
+  ROLE_STATUS_PERMISSIONS,
+} from '.';
+
+@Injectable()
+export class UpdateTaskPolicy {
+  constructor(private createtaskpolicy: CreateTaskPolicy) {}
+  validate(
+    user: PayloadUser,
+    dto: UpdateTaskDto,
+    reportToUser: reportedUser,
+    assignToUser: assignToUser,
+  ) {
+    // Basic field validation
+    this.handleBasicFields(user, dto);
+
+    // Status transitions
+    this.handleStatus(user, dto);
+
+    //  Assignment logic
+    this.handleAssignment(user, reportToUser, assignToUser);
+  }
+
+  //Basic Fields Handler
+  private handleBasicFields(user: PayloadUser, dto: UpdateTaskDto) {
+    const userRole: Role = user.role as Role;
+    const allowed = ROLE_FIELD_PERMISSIONS[userRole];
+    const incomingFields = Object.keys(dto) as (keyof UpdateTaskDto)[];
+
+    // Admin can update everything
+    if (allowed === '*') return;
+
+    const invalidFields = incomingFields.filter(
+      (field) => !allowed.includes(field),
+    );
+
+    if (invalidFields.length > 0) {
+      throw new ForbiddenException(
+        `You are not allowed to update: ${invalidFields.join(', ')}`,
+      );
+    }
+  }
+
+  //Status Transition Handler
+  private handleStatus(user: PayloadUser, dto: UpdateTaskDto) {
+    if (!dto.status) return;
+
+    const UserRole: Role = user.role as Role;
+    const allowed = ROLE_STATUS_PERMISSIONS[UserRole];
+
+    // Admin can do anything
+    if (allowed === '*') return;
+
+    if (!allowed.includes(dto.status)) {
+      throw new ForbiddenException(
+        `Role ${user.role} cannot set status to ${dto.status}`,
+      );
+    }
+  }
+
+  //ReportTo, AssignTo Business Validation Handler
+  private handleAssignment(
+    user: PayloadUser,
+    reportToUser: reportedUser,
+    assigToUser: assignToUser,
+  ) {
+    this.createtaskpolicy.validate(user, reportToUser, assigToUser);
+  }
+}

@@ -9,11 +9,18 @@ export const taskSelect = {
   reportedTo: {
     select: {
       name: true,
+      id: true,
     },
   },
   assignedTo: {
     select: {
       name: true,
+      id: true,
+    },
+  },
+  createdById: {
+    select: {
+      id: true,
     },
   },
 } satisfies Prisma.TaskSelect;

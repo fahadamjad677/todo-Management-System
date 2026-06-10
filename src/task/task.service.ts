@@ -1,6 +1,5 @@
 import {
-  BadRequestException,
-  ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,19 +8,24 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PayloadUser } from 'src/auth/types';
 import { CommonService } from 'src/common/services/common.service';
 import { taskSelect } from 'src/prisma/selects';
-import { assignToUser, reportedUser, TaskType } from './types';
+import { reportedUser, TaskType } from './types';
 import { Prisma } from 'generated/prisma/client';
+import { CreateTaskPolicy, UpdateTaskPolicy } from './policy';
 
 type userType = {
   id: string;
   name: string;
 };
 
+type TaskUserType = 'REPORT_TO' | 'ASSIGN_TO';
+
 @Injectable()
 export class TaskService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly commonservice: CommonService,
+    private readonly createtaskpolicy: CreateTaskPolicy,
+    private readonly updatetaskpolicy: UpdateTaskPolicy,
   ) {}
 
   //Get All Reported To Users Tasks
@@ -67,8 +71,10 @@ export class TaskService {
 
     //can Assign to itself or other manager
     if (user.role == 'ADMIN') {
-      const reportedUser: reportedUser | null =
-        await this.getUserById(reportedToId);
+      const reportedUser: reportedUser | null = await this.getTaskUserById(
+        reportedToId,
+        'REPORT_TO',
+      );
       if (!reportedUser) {
         throw new NotFoundException('ReportedTo user not found');
       }
@@ -137,37 +143,22 @@ export class TaskService {
   //Create Task
   async create(createTaskDto: CreateTaskDto, user: PayloadUser) {
     //Getting ReportToUser, AssignToUser
-    const reportToUser = await this.getReportToUserByReportToId(
+    const reportToUser = await this.getTaskUserById(
       createTaskDto.reportedToId,
+      'REPORT_TO',
     );
 
-    const assignToUser = await this.getAssignToUserByAssignToId(
+    const assignToUser = await this.getTaskUserById(
       createTaskDto.assignedToId,
+      'ASSIGN_TO',
     );
-    //Admin Criteria
-    if (user.role == 'ADMIN') {
-      //  Validates Admin Permissions
-      this.CheckAdminPermissions(reportToUser, assignToUser);
-    }
-    //Manager Criteria
-    else if (user.role == 'MANAGER') {
-      if (user.sub != reportToUser.id) {
-        throw new ConflictException('MANAGER can only report to themself');
-      } else if (assignToUser.role.name != 'USER') {
-        throw new ConflictException('MANAGER can only assign users');
-      }
 
-      const assignedepts = this.commonservice.flattenDepartments(
-        assignToUser,
-        'id',
-      );
-      const checkAssigne = assignedepts.includes(user.department);
-      if (!checkAssigne) {
-        throw new ConflictException(
-          'MANAGER can only assign user of their own departments',
-        );
-      }
+    //Policy Check whether the admin, manager or user can create a task
+    if (!this.createtaskpolicy.validate(user, reportToUser, assignToUser)) {
+      throw new ForbiddenException('USER CANNOT CREATE A TASK');
     }
+
+    //Create A task
     const task = await this.prisma.task.create({
       data: {
         name: createTaskDto.name,
@@ -175,6 +166,7 @@ export class TaskService {
         time: createTaskDto.time,
         assignedToId: createTaskDto.assignedToId,
         reportedToId: createTaskDto.reportedToId,
+        createdbyId: user.sub,
       },
     });
 
@@ -234,12 +226,10 @@ export class TaskService {
       where: { id },
       select: {
         id: true,
-        reportedTo: {
-          select: {
-            id: true,
-          },
-        },
+        reportedToId: true,
         assignedToId: true,
+        createdbyId: true,
+        status: true,
       },
     });
 
@@ -247,112 +237,27 @@ export class TaskService {
       throw new NotFoundException('TASK not found');
     }
 
-    //ADMIN VALIDATION
-    if (user.role == 'ADMIN') {
-      //Check ReportToValidation
-      if (updateTaskDto.reportedToId) {
-        //if reportTo updated and assignTo provided
-        if (
-          updateTaskDto.reportedToId != checkTaskExist.reportedTo.id &&
-          updateTaskDto.assignedToId
-        ) {
-          const reportToUser = await this.getReportToUserByReportToId(
-            updateTaskDto.reportedToId,
-          );
+    //2. ONLY Getting The final ReportTo and AssignTo from db in a single Fetch
+    const finalReportToId =
+      updateTaskDto.reportedToId ?? checkTaskExist.reportedToId;
 
-          const assignToUser = await this.getAssignToUserByAssignToId(
-            updateTaskDto.assignedToId,
-          );
+    const finalAssignToId =
+      updateTaskDto.assignedToId ?? checkTaskExist.assignedToId;
 
-          this.CheckAdminPermissions(reportToUser, assignToUser);
-        }
-        // ReportTo Updated AssignedTo not Provided
-        else if (
-          updateTaskDto.reportedToId != checkTaskExist.reportedTo.id &&
-          !updateTaskDto.assignedToId
-        ) {
-          throw new ConflictException('AssignTo Not provided');
-        }
+    const [finalReportToUser, finalAssignToUser] = await Promise.all([
+      this.getTaskUserById(finalReportToId, 'REPORT_TO'),
+      this.getTaskUserById(finalAssignToId, 'ASSIGN_TO'),
+    ]);
 
-        // ReportTo Not provided Then Checking AssignTo
-        else if (updateTaskDto.reportedToId == checkTaskExist.reportedTo.id) {
-          if (
-            updateTaskDto.assignedToId &&
-            updateTaskDto.assignedToId != checkTaskExist.assignedToId
-          ) {
-            const reportToUser = await this.getReportToUserByReportToId(
-              updateTaskDto.reportedToId,
-            );
+    //3. Validating The Policies of Updating the task
+    this.updatetaskpolicy.validate(
+      user,
+      updateTaskDto,
+      finalReportToUser,
+      finalAssignToUser,
+    );
 
-            const assignToUser = await this.getAssignToUserByAssignToId(
-              updateTaskDto.assignedToId,
-            );
-
-            this.CheckAdminPermissions(reportToUser, assignToUser);
-          }
-        }
-      }
-      // ReportTo Not Provided
-      else if (!updateTaskDto.reportedToId) {
-        if (updateTaskDto.assignedToId) {
-          throw new ConflictException('ReportTo Not Provided');
-        }
-      }
-    }
-    //MANAGER VALIDATION
-    else if (user.role == 'MANAGER') {
-      //Manager only change the reportTo of itself  ReportToId Exists
-      if (updateTaskDto.reportedToId) {
-        //ReportTo Cases
-        const reportToUser = await this.getReportToUserByReportToId(
-          updateTaskDto.reportedToId,
-        );
-
-        //Admin Case
-        if (reportToUser.role.name == 'ADMIN') {
-          throw new BadRequestException(
-            'MANAGER  changes the ReportTO field to itself or Users',
-          );
-        }
-        //Manager Case
-        else if (
-          reportToUser.role.name == 'MANAGER' &&
-          reportToUser.id != user.sub
-        ) {
-          throw new BadRequestException(
-            'MANAGER  changes the ReportTO field to itself or Users ',
-          );
-        }
-
-        //User Case
-        else if (reportToUser.role.name == 'USER') {
-          throw new BadRequestException(
-            'MANAGER  changes the ReportTO field to itself or Users ',
-          );
-        }
-      }
-
-      // ReportToId Not Exists
-      else if (!updateTaskDto.reportedToId) {
-        // AssignToId Exists
-        if (updateTaskDto.assignedToId) {
-          const assignToUser = await this.getAssignToUserByAssignToId(
-            updateTaskDto.assignedToId,
-          );
-
-          this.checkManagerPermissions(assignToUser, user);
-        }
-      }
-      if (updateTaskDto.reportedToId)
-        if (updateTaskDto.assignedToId) {
-          //AssignTo Cases
-          const assignToUser = await this.getAssignToUserByAssignToId(
-            updateTaskDto.assignedToId,
-          );
-          this.checkManagerPermissions(assignToUser, user);
-        }
-    }
-
+    //FINAL Update
     const updatedTask = await this.prisma.task.update({
       where: { id: id },
       data: updateTaskDto,
@@ -367,144 +272,10 @@ export class TaskService {
   }
   //-------------------HELPERS-----------------------
 
-  //check Admin Permissions
-  CheckAdminPermissions(
-    reportToUser: reportedUser,
-    assignToUser: assignToUser,
-  ) {
-    //ReportTo==Assignto
-    if (
-      reportToUser.role.name == 'ADMIN' &&
-      assignToUser.role.name != 'ADMIN'
-    ) {
-      throw new ConflictException('ReportToUser mismatch with AssignToUser');
-    }
-
-    //ReportTo=Manager so AssignTo belongs to that managers' department
-    else if (
-      reportToUser.role.name == 'MANAGER' &&
-      assignToUser.role.name != 'USER'
-    ) {
-      throw new ConflictException('Invalid ReportTo, AssignTo Allocation');
-    }
-    // ReportTO if User then throw Error
-    else if (reportToUser.role.name == 'USER') {
-      throw new NotFoundException('invalid reportTo User');
-    } else if (
-      reportToUser.role.name == 'MANAGER' &&
-      assignToUser.role.name == 'USER'
-    ) {
-      const reportedDepts = this.commonservice.flattenDepartments(
-        reportToUser,
-        'name',
-      );
-
-      const assigneDepts = this.commonservice.flattenDepartments(
-        assignToUser,
-        'name',
-      );
-
-      const CheckDeptMatch = reportedDepts.some((dept) => {
-        return assigneDepts.includes(dept);
-      });
-
-      console.log('CheckDepthMatch', CheckDeptMatch);
-      if (!CheckDeptMatch) {
-        throw new ConflictException(
-          'reportedTo dept not matches with assignedTo dept',
-        );
-      }
-    }
-  }
-
-  //Check Managaer Permissions
-  checkManagerPermissions(assignToUser: assignToUser, user: PayloadUser) {
-    //Manager Can Assign To Itself OR USER of same Department
-
-    //Admin Case
-    if (assignToUser.role.name == 'ADMIN') {
-      throw new BadRequestException(
-        'MANAGER can assign to itself or Users under its department',
-      );
-    }
-
-    //Manager Case
-    if (assignToUser.role.name == 'MANAGER' && assignToUser.id != user.sub) {
-      throw new BadRequestException(
-        'MANAGER can assign to itself or Users under its department',
-      );
-    }
-
-    //User Case
-    if (assignToUser.role.name == 'USER') {
-      const assignedepts = this.commonservice.flattenDepartments(
-        assignToUser,
-        'id',
-      );
-      const checkAssigne = assignedepts.includes(user.department);
-      if (!checkAssigne) {
-        throw new ConflictException(
-          'MANAGER can only assign user of their own departments',
-        );
-      }
-    }
-  }
-  //Get ReportToUser by ReportToId
-  private async getReportToUserByReportToId(reportToId: string) {
-    const reportToUser = await this.prisma.user.findUnique({
-      where: { id: reportToId },
-      select: {
-        id: true,
-        name: true,
-        role: { select: { name: true } },
-        departments: {
-          select: {
-            department: {
-              select: {
-                name: true,
-                id: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!reportToUser) {
-      throw new NotFoundException('reportedTo Id not found ');
-    }
-    return reportToUser;
-  }
-
-  //Get AssignToUser by AssignToId
-  private async getAssignToUserByAssignToId(assignToId: string) {
-    const assignToUser = await this.prisma.user.findUnique({
-      where: { id: assignToId },
-      select: {
-        id: true,
-        role: { select: { name: true } },
-        departments: {
-          select: {
-            department: {
-              select: {
-                name: true,
-                id: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!assignToUser) {
-      throw new NotFoundException('Assigned To Id not  found');
-    }
-
-    return assignToUser;
-  }
-  private async getUserById(id: string) {
+  // Get User By Id for Task Service like reportTo, AssignTo
+  private async getTaskUserById(userId: string, type: TaskUserType) {
     const user = await this.prisma.user.findUnique({
-      where: { id: id },
+      where: { id: userId },
       select: {
         id: true,
         name: true,
@@ -513,32 +284,24 @@ export class TaskService {
           select: {
             department: {
               select: {
-                name: true,
                 id: true,
+                name: true,
               },
             },
           },
         },
       },
     });
+
+    if (!user) {
+      const errorMessage =
+        type === 'REPORT_TO'
+          ? 'ReportedTo user not found'
+          : 'AssignedTo user not found';
+
+      throw new NotFoundException(errorMessage);
+    }
 
     return user;
-  }
-
-  //GetDepartment by Id
-  private async getDepartmentNamebyId(id: string) {
-    const dept = await this.prisma.department.findUnique({
-      where: { id },
-      select: { name: true },
-    });
-
-    return dept;
-  }
-  private async findAllUsers() {
-    const users = await this.prisma.user.findMany({
-      select: { id: true, name: true },
-    });
-
-    return users;
   }
 }

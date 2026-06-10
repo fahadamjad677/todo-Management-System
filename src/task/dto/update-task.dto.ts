@@ -13,7 +13,9 @@ export class UpdateTaskDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(Priority)
+  @IsEnum(Priority, {
+    message: 'Priority must be one of: LOW, MEDIUM, HIGH',
+  })
   priority?: Priority;
 
   @IsOptional()
@@ -25,7 +27,9 @@ export class UpdateTaskDto {
   time?: Date;
 
   @IsOptional()
-  @IsEnum(Status)
+  @IsEnum(Status, {
+    message: 'Status must be one of: TODO, IN_PROGRESS,REVIEW, COMPLETED',
+  })
   status?: Status;
 
   @IsOptional()

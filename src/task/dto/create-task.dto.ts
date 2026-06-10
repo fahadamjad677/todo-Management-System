@@ -24,7 +24,7 @@ export class CreateTaskDto {
 
   @IsOptional()
   @IsEnum(Status, {
-    message: 'Status must be one of: TODO, IN_PROGRESS, DONE',
+    message: 'Status must be one of: TODO, IN_PROGRESS,REVIEW, COMPLETED',
   })
   status?: Status;
 
