@@ -1,11 +1,15 @@
 import { Module } from '@nestjs/common';
 import { TaskService } from './task.service';
 import { TaskController } from './task.controller';
-import { TaskPolicy } from './policy';
-import { TaskValidator } from './validator/task.validator';
+import { CreateTaskPolicy, UpdateTaskPolicy, CommonTaskPolicy } from './policy';
 
 @Module({
   controllers: [TaskController],
-  providers: [TaskService, TaskPolicy, TaskValidator],
+  providers: [
+    TaskService,
+    CreateTaskPolicy,
+    UpdateTaskPolicy,
+    CommonTaskPolicy,
+  ],
 })
 export class TaskModule {}
