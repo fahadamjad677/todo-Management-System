@@ -68,8 +68,11 @@ export class UpdateTaskPolicy {
   private handleAssignment(
     user: PayloadUser,
     reportToUser: reportedUser,
-    assigToUser: assignToUser,
+    assignToUser: assignToUser,
   ) {
-    this.createtaskpolicy.validate(user, reportToUser, assigToUser);
+    //Policy Check whether the admin, manager or user can create a task
+    if (!this.createtaskpolicy.validate(user, reportToUser, assignToUser)) {
+      throw new ForbiddenException('USER CANNOT UPDATE A TASK');
+    }
   }
 }

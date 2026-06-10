@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateTaskDto, GetTasksQueryDto, UpdateTaskDto } from './dto';
+import {
+  CreateTaskDto,
+  GetTasksAdminQueryDto,
+  GetTasksQueryDto,
+  UpdateTaskDto,
+} from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PayloadUser } from 'src/auth/types';
 import { CommonService } from 'src/common/services/common.service';
@@ -55,7 +60,7 @@ export class TaskService {
         throw new NotFoundException('user not found');
       }
     } else {
-      users = null;
+      throw new ForbiddenException('ROLE NOT FOUND');
     }
 
     return {
@@ -108,7 +113,7 @@ export class TaskService {
           select: { id: true, name: true },
         });
       } else {
-        users = null;
+        throw new ForbiddenException('ROLE NOT FOUND');
       }
     }
     // Manager Assigns to Users under him
@@ -130,7 +135,7 @@ export class TaskService {
         select: { name: true, id: true },
       });
     } else {
-      users = null;
+      throw new ForbiddenException('ROLE NOT FOUND');
     }
 
     return {
@@ -158,16 +163,24 @@ export class TaskService {
       throw new ForbiddenException('USER CANNOT CREATE A TASK');
     }
 
+    let priority = createTaskDto.priority;
+    //Handling Priority
+    if (!priority) {
+      priority = 'MEDIUM';
+    }
+
     //Create A task
     const task = await this.prisma.task.create({
       data: {
         name: createTaskDto.name,
         Description: createTaskDto.description,
         time: createTaskDto.time,
+        priority: priority,
         assignedToId: createTaskDto.assignedToId,
         reportedToId: createTaskDto.reportedToId,
         createdbyId: user.sub,
       },
+      select: taskSelect,
     });
 
     return {
@@ -197,19 +210,8 @@ export class TaskService {
     }
 
     // Merge filters instead of overwriting
-    if (status) {
-      where = {
-        ...where,
-        status,
-      };
-    }
-
-    if (priority) {
-      where = {
-        ...where,
-        priority,
-      };
-    }
+    if (status) where.status = status;
+    if (priority) where.priority = priority;
 
     // Transaction for consistency
     const [tasks, total] = await this.prisma.$transaction([
@@ -238,6 +240,57 @@ export class TaskService {
     };
   }
 
+  //Get Tasks Admin
+  async getTasksAdmin(userId: string, query: GetTasksAdminQueryDto) {
+    const {
+      status,
+      priority,
+      reportedTo,
+      assignedTo,
+      offset = 0,
+      limit = 10,
+    } = query;
+
+    // dynamic Where Object
+    const where: Prisma.TaskWhereInput = {};
+
+    //Query Params Handling
+    if (status) where.status = status;
+    if (priority) where.priority = priority;
+    if (reportedTo && assignedTo) {
+      where.OR = [{ reportedToId: userId }, { assignedToId: userId }];
+    } else if (reportedTo) {
+      where.reportedToId = userId;
+    } else if (assignedTo) {
+      where.assignedToId = userId;
+    }
+
+    // Transaction for consistency
+    const [tasks, total] = await this.prisma.$transaction([
+      this.prisma.task.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: taskSelect,
+      }),
+      this.prisma.task.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      msg: 'Tasks Returned Successfully',
+      data: tasks,
+      meta: {
+        total,
+        offset,
+        limit,
+        hasMore: offset + limit < total,
+      },
+    };
+  }
   //Update Task
   async update(id: string, updateTaskDto: UpdateTaskDto, user: PayloadUser) {
     //Check Id exists

@@ -8,7 +8,15 @@ export const ROLE_FIELD_PERMISSIONS: Record<
 > = {
   USER: ['name', 'description', 'status'],
 
-  MANAGER: ['name', 'description', 'status', 'reportedToId', 'assignedToId'],
+  MANAGER: [
+    'name',
+    'description',
+    'status',
+    'priority',
+    'time',
+    'reportedToId',
+    'assignedToId',
+  ],
 
   ADMIN: '*',
 } as const;

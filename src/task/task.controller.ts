@@ -11,7 +11,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { TaskService } from './task.service';
-import { CreateTaskDto, GetTasksQueryDto, UpdateTaskDto } from './dto';
+import {
+  CreateTaskDto,
+  GetTasksAdminQueryDto,
+  GetTasksQueryDto,
+  UpdateTaskDto,
+} from './dto';
 import { Roles } from 'src/auth/decorator/role.decorator';
 import { jwtAcessGuard, RoleGuard } from 'src/auth/guard';
 import { GetUser } from '../user/decorator';
@@ -47,6 +52,16 @@ export class TaskController {
     return this.taskService.getTasks(user, query);
   }
 
+  //Get Tasks of Admin
+  @Get()
+  getAllTasksAdmin(
+    @GetUser('sub') userId: string,
+    @Query() query: GetTasksAdminQueryDto,
+  ) {
+    return this.taskService.getTasksAdmin(userId, query);
+  }
+
+  @Roles('USER')
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string,

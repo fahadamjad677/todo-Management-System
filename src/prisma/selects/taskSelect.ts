@@ -21,6 +21,7 @@ export const taskSelect = {
   createdById: {
     select: {
       id: true,
+      name: true,
     },
   },
 } satisfies Prisma.TaskSelect;
