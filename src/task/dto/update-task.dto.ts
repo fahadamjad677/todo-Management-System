@@ -42,11 +42,13 @@ export class UpdateTaskDto {
   @IsUUID()
   assignedToId?: string;
 
+  @IsOptional()
   @IsInt({ message: 'Assigned score must be an integer' })
   @Min(1, { message: 'Assigned score must be at least 1' })
-  assignedScore!: number;
+  assignedScore?: number;
 
+  @IsOptional()
   @IsInt({ message: 'Assigned score must be an integer' })
   @Min(1, { message: 'Assigned score must be at least 1' })
-  obtainedScore!: number;
+  obtainedScore?: number;
 }

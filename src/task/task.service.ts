@@ -16,7 +16,6 @@ import { taskSelect } from 'src/prisma/selects';
 import { reportedUser } from './types';
 import { Prisma, Status } from 'generated/prisma/client';
 import { CreateTaskPolicy, UpdateTaskPolicy } from './policy';
-import { Payload } from '@prisma/client/runtime/client';
 
 type userType = {
   id: string;
@@ -243,7 +242,55 @@ export class TaskService {
   }
 
   //Get Tasks Completed Avg
-  async getTasksCompleted(user: PayloadUser) {}
+  async getUserWithTasks(id: string) {
+    //Check Id exists
+    const User = await this.prisma.user.findUnique({
+      where: {
+        id: id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!User) {
+      throw new NotFoundException('USER NOT FOUND');
+    }
+
+    //Fetching all tasks with completed status
+    const Tasks = await this.prisma.task.findMany({
+      where: {
+        AND: [{ assignedToId: id, status: 'COMPLETED' }],
+      },
+      select: {
+        assignedScore: true,
+        obtainedScore: true,
+        name: true,
+        Description: true,
+      },
+    });
+
+    //Tasks With Percentage
+    const tasksWithPercentage = Tasks.map((task) => {
+      const { assignedScore, obtainedScore } = task;
+
+      let percentage: number | null = null;
+
+      if (assignedScore && obtainedScore) {
+        percentage = (obtainedScore / assignedScore) * 100;
+      }
+
+      return {
+        ...task,
+        percentage,
+      };
+    });
+    return {
+      success: true,
+      msg: 'Tasks Returned Successfully',
+      data: tasksWithPercentage,
+    };
+  }
 
   //Get Tasks Admin
   async getTasksAdmin(userId: string, query: GetTasksAdminQueryDto) {

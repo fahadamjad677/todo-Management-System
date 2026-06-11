@@ -103,7 +103,7 @@ export class UpdateTaskPolicy {
     }
 
     if (isAssigningAssignedScore) {
-      if (dto.assignedScore <= 0) {
+      if (dto.assignedScore && dto.assignedScore <= 0) {
         throw new BadRequestException('Assigned score must be greater than 0');
       }
     }
@@ -117,7 +117,7 @@ export class UpdateTaskPolicy {
         throw new BadRequestException('Task must be completed first');
       }
 
-      if (dto.obtainedScore > assignedScore) {
+      if (dto.obtainedScore && dto.obtainedScore > assignedScore) {
         throw new BadRequestException('Invalid score');
       }
     }

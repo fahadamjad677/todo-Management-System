@@ -71,6 +71,10 @@ export class TaskController {
     return this.taskService.update(id, updateTaskDto, user);
   }
 
+  @Get(':id')
+  getUsersWithTasks(@Param('id', ParseUUIDPipe) id: string) {
+    return this.taskService.getUserWithTasks(id);
+  }
   // @Delete(':id')
   // remove(@Param('id') id: string) {
   //   return this.taskService.remove(+id);
