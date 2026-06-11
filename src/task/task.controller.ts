@@ -46,14 +46,15 @@ export class TaskController {
     return this.taskService.getAssignedTo(user, reportedToId);
   }
 
-  @Roles('USER')
+  @Roles('ADMIN', 'USER', 'MANAGER')
   @Get()
   getAllTasks(@GetUser() user: PayloadUser, @Query() query: GetTasksQueryDto) {
     return this.taskService.getTasks(user, query);
   }
 
   //Get Tasks of Admin
-  @Get()
+  @Roles('ADMIN')
+  @Get('admin')
   getAllTasksAdmin(
     @GetUser('sub') userId: string,
     @Query() query: GetTasksAdminQueryDto,
@@ -61,7 +62,7 @@ export class TaskController {
     return this.taskService.getTasksAdmin(userId, query);
   }
 
-  @Roles('USER')
+  @Roles('ADMIN', 'MANAGER', 'USER')
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -71,6 +72,7 @@ export class TaskController {
     return this.taskService.update(id, updateTaskDto, user);
   }
 
+  @Roles('ADMIN')
   @Get(':id')
   getUsersWithTasks(@Param('id', ParseUUIDPipe) id: string) {
     return this.taskService.getUserWithTasks(id);
