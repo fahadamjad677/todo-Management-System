@@ -14,8 +14,9 @@ import { PayloadUser } from 'src/auth/types';
 import { CommonService } from 'src/common/services/common.service';
 import { taskSelect } from 'src/prisma/selects';
 import { reportedUser } from './types';
-import { Prisma } from 'generated/prisma/client';
+import { Prisma, Status } from 'generated/prisma/client';
 import { CreateTaskPolicy, UpdateTaskPolicy } from './policy';
+import { Payload } from '@prisma/client/runtime/client';
 
 type userType = {
   id: string;
@@ -179,6 +180,7 @@ export class TaskService {
         assignedToId: createTaskDto.assignedToId,
         reportedToId: createTaskDto.reportedToId,
         createdbyId: user.sub,
+        assignedScore: createTaskDto.assignedScore,
       },
       select: taskSelect,
     });
@@ -239,6 +241,9 @@ export class TaskService {
       },
     };
   }
+
+  //Get Tasks Completed Avg
+  async getTasksCompleted(user: PayloadUser) {}
 
   //Get Tasks Admin
   async getTasksAdmin(userId: string, query: GetTasksAdminQueryDto) {
@@ -302,6 +307,7 @@ export class TaskService {
         assignedToId: true,
         createdbyId: true,
         status: true,
+        assignedScore: true,
       },
     });
 
@@ -312,7 +318,6 @@ export class TaskService {
     //2. ONLY Getting The final ReportTo and AssignTo from db in a single Fetch
     const finalReportToId =
       updateTaskDto.reportedToId ?? checkTaskExist.reportedToId;
-
     const finalAssignToId =
       updateTaskDto.assignedToId ?? checkTaskExist.assignedToId;
 
@@ -321,12 +326,18 @@ export class TaskService {
       this.getTaskUserById(finalAssignToId, 'ASSIGN_TO'),
     ]);
 
+    //Final Status of Task
+    const finalStatus: Status = updateTaskDto.status ?? checkTaskExist.status;
+    const assignedSore = checkTaskExist.assignedScore as number;
+
     //3. Validating The Policies of Updating the task
     this.updatetaskpolicy.validate(
       user,
       updateTaskDto,
       finalReportToUser,
       finalAssignToUser,
+      finalStatus,
+      assignedSore,
     );
 
     //FINAL Update

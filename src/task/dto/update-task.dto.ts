@@ -4,6 +4,8 @@ import {
   IsString,
   IsDateString,
   IsUUID,
+  IsInt,
+  Min,
 } from 'class-validator';
 import { Priority, Status } from 'generated/prisma/client';
 
@@ -39,4 +41,12 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsUUID()
   assignedToId?: string;
+
+  @IsInt({ message: 'Assigned score must be an integer' })
+  @Min(1, { message: 'Assigned score must be at least 1' })
+  assignedScore!: number;
+
+  @IsInt({ message: 'Assigned score must be an integer' })
+  @Min(1, { message: 'Assigned score must be at least 1' })
+  obtainedScore!: number;
 }

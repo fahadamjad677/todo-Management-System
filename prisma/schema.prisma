@@ -105,6 +105,9 @@ model Task{
   assignedToId  String 
   createdbyId   String
 
+  // Scores
+  assignedScore Int    // set at creation
+  obtainedScore Int?     // set after completion
 
 //Relations
  reportedTo User @relation("ReportedTasks", fields: [reportedToId], references: [id])

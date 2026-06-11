@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { PayloadUser } from 'src/auth/types';
 import { assignToUser, reportedUser, Role } from '../types';
 import { UpdateTaskDto } from '../dto';
@@ -7,6 +11,7 @@ import {
   ROLE_FIELD_PERMISSIONS,
   ROLE_STATUS_PERMISSIONS,
 } from '.';
+import { Status } from 'generated/prisma/enums';
 
 @Injectable()
 export class UpdateTaskPolicy {
@@ -16,12 +21,17 @@ export class UpdateTaskPolicy {
     dto: UpdateTaskDto,
     reportToUser: reportedUser,
     assignToUser: assignToUser,
+    finalStatus: Status,
+    assignedScore: number,
   ) {
     // Basic field validation
     this.handleBasicFields(user, dto);
 
     // Status transitions
     this.handleStatus(user, dto);
+
+    //Handle Score Assignment
+    this.handleScoreAssignment(user, dto, finalStatus, assignedScore);
 
     //  Assignment logic
     this.handleAssignment(user, reportToUser, assignToUser);
@@ -73,6 +83,43 @@ export class UpdateTaskPolicy {
     //Policy Check whether the admin, manager or user can create a task
     if (!this.createtaskpolicy.validate(user, reportToUser, assignToUser)) {
       throw new ForbiddenException('USER CANNOT UPDATE A TASK');
+    }
+  }
+
+  private handleScoreAssignment(
+    user: PayloadUser,
+    dto: UpdateTaskDto,
+    finalStatus: Status,
+    assignedScore: number,
+  ) {
+    const isAssigningAssignedScore = dto.assignedScore !== undefined;
+    const isAssigningObtainedScore = dto.obtainedScore !== undefined;
+
+    if (
+      user.role === 'USER' &&
+      (isAssigningAssignedScore || isAssigningObtainedScore)
+    ) {
+      throw new ForbiddenException('Users cannot modify scores');
+    }
+
+    if (isAssigningAssignedScore) {
+      if (dto.assignedScore <= 0) {
+        throw new BadRequestException('Assigned score must be greater than 0');
+      }
+    }
+
+    if (isAssigningObtainedScore) {
+      if (user.role !== 'ADMIN') {
+        throw new ForbiddenException('Only admin can assign obtained score');
+      }
+
+      if (finalStatus !== 'COMPLETED') {
+        throw new BadRequestException('Task must be completed first');
+      }
+
+      if (dto.obtainedScore > assignedScore) {
+        throw new BadRequestException('Invalid score');
+      }
     }
   }
 }

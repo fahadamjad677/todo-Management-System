@@ -6,6 +6,8 @@ import {
   IsNotEmpty,
   MaxLength,
   IsUUID,
+  IsInt,
+  Min,
 } from 'class-validator';
 
 import { Priority } from 'generated/prisma/enums';
@@ -37,4 +39,8 @@ export class CreateTaskDto {
   @IsUUID('4', { message: 'assignedToId must be a valid UUID' })
   @IsNotEmpty()
   assignedToId!: string;
+
+  @IsInt({ message: 'Assigned score must be an integer' })
+  @Min(1, { message: 'Assigned score must be at least 1' })
+  assignedScore!: number;
 }

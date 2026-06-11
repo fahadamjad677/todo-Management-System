@@ -16,6 +16,7 @@ export const ROLE_FIELD_PERMISSIONS: Record<
     'time',
     'reportedToId',
     'assignedToId',
+    'assignedScore',
   ],
 
   ADMIN: '*',
