@@ -373,9 +373,13 @@ export class TaskService {
       this.getTaskUserById(finalAssignToId, 'ASSIGN_TO'),
     ]);
 
-    //Final Status of Task
+    //Final Status of Task handling
+    if (updateTaskDto.status && checkTaskExist.status === 'COMPLETED') {
+      throw new ForbiddenException('USER CANNOT UPDATE COMPLETED TASK');
+    }
+
     const finalStatus: Status = updateTaskDto.status ?? checkTaskExist.status;
-    const assignedSore = checkTaskExist.assignedScore as number;
+    const assignedSore = checkTaskExist.assignedScore;
 
     //3. Validating The Policies of Updating the task
     this.updatetaskpolicy.validate(
