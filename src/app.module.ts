@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { DepartmentModule } from './department/department.module';
 import { TaskModule } from './task/task.module';
 import { CommonModule } from './common/common.module';
+import { CommentsModule } from './comments/comments.module';
 @Module({
   imports: [
     AuthModule,
@@ -17,6 +18,7 @@ import { CommonModule } from './common/common.module';
     DepartmentModule,
     TaskModule,
     CommonModule,
+    CommentsModule,
   ],
   controllers: [],
   providers: [],
